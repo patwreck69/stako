@@ -1,0 +1,114 @@
+// staking_pool.rs
+// Core staking pool logic for Stako
+
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+use std::cmp::min;
+
+#[program]
+pub mod staking_pool {
+    use super::*;
+
+    pub fn initialize_pool(
+        ctx: Context<InitializePool>,
+        apy: u64,
+        lockup_period: u64,
+    ) -> Result<()> {
+        let staking_pool = &mut ctx.accounts.staking_pool;
+        staking_pool.authority = ctx.accounts.authority.key();
+        staking_pool.token_mint = ctx.accounts.token_mint.key();
+        staking_pool.apy = apy;
+        staking_pool.lockup_period = lockup_period;
+        staking_pool.total_staked = 0;
+        staking_pool.reward_balance = 0;
+        Ok(())
+    }
+
+    pub fn stake_tokens(ctx: Context<StakeTokens>, amount: u64) -> Result<()> {
+        let staking_pool = &mut ctx.accounts.staking_pool;
+        let user_stake = &mut ctx.accounts.user_stake;
+
+        token::transfer(
+            ctx.accounts.transfer_ctx(),
+            amount,
+        )?;
+
+        user_stake.amount += amount;
+        user_stake.start_time = Clock::get()?.unix_timestamp as u64;
+        staking_pool.total_staked += amount;
+        Ok(())
+    }
+
+    pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> {
+        let staking_pool = &mut ctx.accounts.staking_pool;
+        let user_stake = &mut ctx.accounts.user_stake;
+        let clock = Clock::get()?.unix_timestamp as u64;
+
+        let stake_duration = clock - user_stake.start_time;
+        let reward = min(
+            (user_stake.amount * staking_pool.apy * stake_duration) / (365 * 24 * 3600 * 100),
+            staking_pool.reward_balance,
+        );
+
+        token::transfer(
+            ctx.accounts.transfer_ctx_reward(),
+            reward,
+        )?;
+
+        staking_pool.reward_balance -= reward;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct InitializePool<'info> {
+    #[account(init, payer = authority, space = 8 + 64)]
+    pub staking_pool: Account<'info, StakingPool>,
+    pub token_mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct StakeTokens<'info> {
+    #[account(mut)]
+    pub staking_pool: Account<'info, StakingPool>,
+    #[account(mut)]
+    pub user_stake: Account<'info, UserStake>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut)]
+    pub token_account: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct ClaimRewards<'info> {
+    #[account(mut)]
+    pub staking_pool: Account<'info, StakingPool>,
+    #[account(mut)]
+    pub user_stake: Account<'info, UserStake>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut)]
+    pub reward_account: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[account]
+pub struct StakingPool {
+    pub authority: Pubkey,
+    pub token_mint: Pubkey,
+    pub apy: u64,
+    pub lockup_period: u64,
+    pub total_staked: u64,
+    pub reward_balance: u64,
+}
+
+#[account]
+pub struct UserStake {
+    pub user: Pubkey,
+    pub amount: u64,
+    pub start_time: u64,
+}
