@@ -1,0 +1,63 @@
+// token_distribution.rs
+// Manages the allocation and distribution of staking rewards in Stako
+
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+use std::cmp::min;
+
+#[program]
+pub mod token_distribution {
+    use super::*;
+
+    pub fn distribute_rewards(ctx: Context<DistributeRewards>) -> Result<()> {
+        let staking_pool = &mut ctx.accounts.staking_pool;
+        let total_stakers = ctx.accounts.user_stakes.len() as u64;
+        require!(total_stakers > 0, CustomError::NoStakers);
+
+        let reward_per_staker = staking_pool.reward_balance / total_stakers;
+        for user_stake in &mut ctx.accounts.user_stakes {
+            let reward = min(
+                (user_stake.amount * staking_pool.apy) / 100,
+                reward_per_staker,
+            );
+            token::transfer(
+                ctx.accounts.transfer_ctx_reward(user_stake.user),
+                reward,
+            )?;
+        }
+        staking_pool.reward_balance -= staking_pool.reward_balance / 10; // Keep some rewards in reserve
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct DistributeRewards<'info> {
+    #[account(mut)]
+    pub staking_pool: Account<'info, StakingPool>,
+    #[account(mut)]
+    pub user_stakes: Vec<Account<'info, UserStake>>,
+    #[account(mut)]
+    pub reward_account: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[account]
+pub struct StakingPool {
+    pub authority: Pubkey,
+    pub token_mint: Pubkey,
+    pub apy: u64,
+    pub total_staked: u64,
+    pub reward_balance: u64,
+}
+
+#[account]
+pub struct UserStake {
+    pub user: Pubkey,
+    pub amount: u64,
+}
+
+#[error_code]
+pub enum CustomError {
+    #[msg("No stakers in the pool.")]
+    NoStakers,
+}
