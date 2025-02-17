@@ -1,0 +1,51 @@
+// staking_events.rs
+// Logs staking events for analytics and historical tracking in Stako
+
+use anchor_lang::prelude::*;
+use solana_program::pubkey::Pubkey;
+
+#[program]
+pub mod staking_events {
+    use super::*;
+
+    pub fn log_stake_event(ctx: Context<LogStakeEvent>, amount: u64) -> Result<()> {
+        let event = &mut ctx.accounts.event;
+        event.user = ctx.accounts.user.key();
+        event.amount = amount;
+        event.timestamp = Clock::get()?.unix_timestamp as u64;
+        msg!("Stake event logged: User {} staked {} tokens at {}", event.user, amount, event.timestamp);
+        Ok(())
+    }
+
+    pub fn log_unstake_event(ctx: Context<LogUnstakeEvent>, amount: u64) -> Result<()> {
+        let event = &mut ctx.accounts.event;
+        event.user = ctx.accounts.user.key();
+        event.amount = amount;
+        event.timestamp = Clock::get()?.unix_timestamp as u64;
+        msg!("Unstake event logged: User {} unstaked {} tokens at {}", event.user, amount, event.timestamp);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct LogStakeEvent<'info> {
+    #[account(mut)]
+    pub event: Account<'info, StakingEvent>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct LogUnstakeEvent<'info> {
+    #[account(mut)]
+    pub event: Account<'info, StakingEvent>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+}
+
+#[account]
+pub struct StakingEvent {
+    pub user: Pubkey,
+    pub amount: u64,
+    pub timestamp: u64,
+}
