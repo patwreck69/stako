@@ -1,0 +1,50 @@
+// staking_frontend_api.rs
+// API integration for the frontend dashboard to interact with Stako's staking contracts
+
+use anchor_lang::prelude::*;
+use solana_program::pubkey::Pubkey;
+use anchor_spl::token::{self, Token, TokenAccount};
+
+#[program]
+pub mod staking_frontend_api {
+    use super::*;
+
+    pub fn get_staking_details(ctx: Context<GetStakingDetails>) -> Result<()> {
+        let staking_pool = &ctx.accounts.staking_pool;
+        msg!("Staking Pool Details: APY: {}%, Total Staked: {}", staking_pool.apy, staking_pool.total_staked);
+        Ok(())
+    }
+
+    pub fn get_user_stake(ctx: Context<GetUserStake>) -> Result<()> {
+        let user_stake = &ctx.accounts.user_stake;
+        msg!("User {} has staked {} tokens", user_stake.user, user_stake.amount);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct GetStakingDetails<'info> {
+    #[account(mut)]
+    pub staking_pool: Account<'info, StakingPool>,
+}
+
+#[derive(Accounts)]
+pub struct GetUserStake<'info> {
+    #[account(mut)]
+    pub user_stake: Account<'info, UserStake>,
+}
+
+#[account]
+pub struct StakingPool {
+    pub authority: Pubkey,
+    pub token_mint: Pubkey,
+    pub apy: u64,
+    pub total_staked: u64,
+    pub reward_balance: u64,
+}
+
+#[account]
+pub struct UserStake {
+    pub user: Pubkey,
+    pub amount: u64,
+}
