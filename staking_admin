@@ -1,0 +1,74 @@
+// staking_admin.rs
+// Admin panel contract for managing staking pools in Stako
+
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+use std::cmp::min;
+
+#[program]
+pub mod staking_admin {
+    use super::*;
+
+    pub fn create_staking_pool(
+        ctx: Context<CreateStakingPool>,
+        apy: u64,
+        lockup_period: u64,
+    ) -> Result<()> {
+        let staking_pool = &mut ctx.accounts.staking_pool;
+        staking_pool.authority = ctx.accounts.admin.key();
+        staking_pool.token_mint = ctx.accounts.token_mint.key();
+        staking_pool.apy = apy;
+        staking_pool.lockup_period = lockup_period;
+        staking_pool.total_staked = 0;
+        staking_pool.reward_balance = 0;
+        msg!("Staking pool created with APY: {}% and Lockup: {} days", apy, lockup_period);
+        Ok(())
+    }
+
+    pub fn update_staking_pool(
+        ctx: Context<UpdateStakingPool>,
+        new_apy: u64,
+        new_lockup: u64,
+    ) -> Result<()> {
+        let staking_pool = &mut ctx.accounts.staking_pool;
+        require!(ctx.accounts.admin.key() == staking_pool.authority, CustomError::Unauthorized);
+        staking_pool.apy = new_apy;
+        staking_pool.lockup_period = new_lockup;
+        msg!("Staking pool updated to APY: {}% and Lockup: {} days", new_apy, new_lockup);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct CreateStakingPool<'info> {
+    #[account(init, payer = admin, space = 8 + 64)]
+    pub staking_pool: Account<'info, StakingPool>,
+    pub token_mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateStakingPool<'info> {
+    #[account(mut)]
+    pub staking_pool: Account<'info, StakingPool>,
+    #[account(mut)]
+    pub admin: Signer<'info>,
+}
+
+#[account]
+pub struct StakingPool {
+    pub authority: Pubkey,
+    pub token_mint: Pubkey,
+    pub apy: u64,
+    pub lockup_period: u64,
+    pub total_staked: u64,
+    pub reward_balance: u64,
+}
+
+#[error_code]
+pub enum CustomError {
+    #[msg("Unauthorized action.")]
+    Unauthorized,
+}
