@@ -95,9 +95,4 @@ Stako is licensed under **MIT License**. See `LICENSE` for more details.
 ## Connect with Stako
 - **Twitter**: [@stakoapp](https://twitter.com/stakoapp)
 - **Website**: [stako.app](https://stako.app)
-- **Discord**: [Join Stako Community](https://discord.gg/stako)
-
----
-### Ready to Launch APY Staking for Your Project?
-[Apply for Staking](https://stako.app/apply)
 
