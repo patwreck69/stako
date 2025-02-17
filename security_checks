@@ -1,0 +1,35 @@
+// security_checks.rs
+// Security validation for staking operations in Stako
+
+use anchor_lang::prelude::*;
+use solana_program::pubkey::Pubkey;
+
+#[program]
+pub mod security_checks {
+    use super::*;
+
+    pub fn validate_staker(ctx: Context<ValidateStaker>) -> Result<()> {
+        let user = &ctx.accounts.user;
+        require!(user.is_verified, CustomError::UnverifiedUser);
+        msg!("User {} is verified.", user.wallet_address);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct ValidateStaker<'info> {
+    #[account(mut)]
+    pub user: Account<'info, User>,
+}
+
+#[account]
+pub struct User {
+    pub wallet_address: Pubkey,
+    pub is_verified: bool,
+}
+
+#[error_code]
+pub enum CustomError {
+    #[msg("User is not verified.")]
+    UnverifiedUser,
+}
