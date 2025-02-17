@@ -1,0 +1,48 @@
+// apy_calculation.rs
+// Handles APY calculations and dynamic adjustments for Stako staking pools
+
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Mint};
+use std::cmp::{max, min};
+
+#[program]
+pub mod apy_calculation {
+    use super::*;
+
+    pub fn calculate_apy(ctx: Context<CalculateApy>) -> Result<()> {
+        let staking_pool = &mut ctx.accounts.staking_pool;
+        let total_staked = staking_pool.total_staked;
+        let reward_pool = staking_pool.reward_balance;
+
+        require!(total_staked > 0, CustomError::NoStakedTokens);
+
+        let base_apy: u64 = 10_000; // Default APY in basis points (100% = 10,000)
+        let utilization_rate = (total_staked * 100) / max(1, reward_pool);
+        let adjusted_apy = min(base_apy + utilization_rate, 20_000); // Cap at 200%
+
+        staking_pool.apy = adjusted_apy;
+        msg!("Updated APY: {}%", adjusted_apy / 100);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct CalculateApy<'info> {
+    #[account(mut)]
+    pub staking_pool: Account<'info, StakingPool>,
+}
+
+#[account]
+pub struct StakingPool {
+    pub authority: Pubkey,
+    pub token_mint: Pubkey,
+    pub apy: u64,
+    pub total_staked: u64,
+    pub reward_balance: u64,
+}
+
+#[error_code]
+pub enum CustomError {
+    #[msg("No staked tokens in the pool.")]
+    NoStakedTokens,
+}
