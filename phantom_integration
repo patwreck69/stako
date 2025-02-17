@@ -1,0 +1,28 @@
+// phantom_integration.rs
+// Solana Phantom wallet integration for staking operations
+
+use anchor_lang::prelude::*;
+use solana_program::pubkey::Pubkey;
+
+#[program]
+pub mod phantom_integration {
+    use super::*;
+
+    pub fn connect_phantom_wallet(ctx: Context<ConnectPhantomWallet>, wallet_address: Pubkey) -> Result<()> {
+        let user = &ctx.accounts.user;
+        user.wallet_address = wallet_address;
+        msg!("Phantom Wallet Connected: {}", wallet_address);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct ConnectPhantomWallet<'info> {
+    #[account(mut)]
+    pub user: Account<'info, User>,
+}
+
+#[account]
+pub struct User {
+    pub wallet_address: Pubkey,
+}
