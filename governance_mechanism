@@ -1,0 +1,94 @@
+// governance_mechanism.rs
+// Implements governance functions for Stako staking pools, allowing community-driven decisions
+
+use anchor_lang::prelude::*;
+use solana_program::pubkey::Pubkey;
+
+#[program]
+pub mod governance_mechanism {
+    use super::*;
+
+    pub fn create_proposal(ctx: Context<CreateProposal>, proposal_text: String) -> Result<()> {
+        let proposal = &mut ctx.accounts.proposal;
+        proposal.proposer = ctx.accounts.proposer.key();
+        proposal.text = proposal_text;
+        proposal.votes_for = 0;
+        proposal.votes_against = 0;
+        proposal.executed = false;
+        msg!("Proposal created: {}", proposal.text);
+        Ok(())
+    }
+
+    pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
+        let proposal = &mut ctx.accounts.proposal;
+        let voter = &ctx.accounts.voter;
+
+        require!(!proposal.executed, CustomError::ProposalExecuted);
+        require!(voter.has_voted == false, CustomError::AlreadyVoted);
+
+        if vote_for {
+            proposal.votes_for += 1;
+        } else {
+            proposal.votes_against += 1;
+        }
+        voter.has_voted = true;
+        msg!("Vote registered: {}", if vote_for {"For"} else {"Against"});
+        Ok(())
+    }
+
+    pub fn execute_proposal(ctx: Context<ExecuteProposal>) -> Result<()> {
+        let proposal = &mut ctx.accounts.proposal;
+        require!(proposal.votes_for > proposal.votes_against, CustomError::ProposalRejected);
+
+        proposal.executed = true;
+        msg!("Proposal executed: {}", proposal.text);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct CreateProposal<'info> {
+    #[account(init, payer = proposer, space = 8 + 128)]
+    pub proposal: Account<'info, Proposal>,
+    #[account(mut)]
+    pub proposer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct VoteProposal<'info> {
+    #[account(mut)]
+    pub proposal: Account<'info, Proposal>,
+    #[account(mut)]
+    pub voter: Account<'info, Voter>,
+}
+
+#[derive(Accounts)]
+pub struct ExecuteProposal<'info> {
+    #[account(mut)]
+    pub proposal: Account<'info, Proposal>,
+}
+
+#[account]
+pub struct Proposal {
+    pub proposer: Pubkey,
+    pub text: String,
+    pub votes_for: u64,
+    pub votes_against: u64,
+    pub executed: bool,
+}
+
+#[account]
+pub struct Voter {
+    pub has_voted: bool,
+}
+
+#[error_code]
+pub enum CustomError {
+    #[msg("Proposal has already been executed.")]
+    ProposalExecuted,
+    #[msg("Voter has already voted.")]
+    AlreadyVoted,
+    #[msg("Proposal was rejected.")]
+    ProposalRejected,
+}
