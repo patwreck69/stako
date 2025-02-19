@@ -87,11 +87,6 @@ Stako prioritizes security through:
 ## License
 Stako is licensed under **MIT License**. See `LICENSE` for more details.
 
-## Contributors
-- **[Your Name]** - Founder & Lead Developer
-- **[Contributor 2]** - Smart Contract Developer
-- **[Contributor 3]** - UI/UX & Frontend Engineer
-
 ## Connect with Stako
 - **Twitter**: [@stakoapp](https://twitter.com/stakoapp)
 - **Website**: [stako.app](https://stako.app)
